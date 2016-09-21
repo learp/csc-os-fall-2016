@@ -60,6 +60,7 @@ runcmd(struct cmd *cmd)
     ecmd = (struct execcmd*)cmd;
     if(ecmd->argv[0] == 0)
       exit(0);
+    // Run ecmd->argv[0] command with ecmd->argv arguments.
     if (execvp(ecmd->argv[0], ecmd->argv) == -1)
       perror("execvp");
 
@@ -74,7 +75,7 @@ runcmd(struct cmd *cmd)
       perror("fopen");
       break;
     }
-
+    // Replace stdin/stdout descriptor on file descriptor 
     if (dup2(r, rcmd->fd) == -1)
     {
       perror("dup2");
@@ -83,6 +84,7 @@ runcmd(struct cmd *cmd)
 
     runcmd(rcmd->cmd);
 
+    // Close file
     if (close(r) == -1){
       perror("close");
     }
@@ -91,16 +93,18 @@ runcmd(struct cmd *cmd)
 
   case '|':
     pcmd = (struct pipecmd*)cmd;
-
+    // Create pipe, where [0] - descriptor for reading and [1] - descriptor for writting
     if(pipe(p) == -1){
       perror("pipe");
     }
-
+    // Create child process which runs pcmd->right command
     if (fork1() == 0) {
+      // Replace stdin descriptor on p[0] 
       if (dup2(p[0], fileno(stdin)) == -1){
         perror("dup2");
         break;
       }
+      // Close unused part of pipe in child process
       if (close(p[1]) == -1){
         perror("close");
         break;
@@ -113,12 +117,14 @@ runcmd(struct cmd *cmd)
         break;
       }
     }
+    // Run pcmd->right command in parent process
     else{
-
+      // Replace stdout descriptor on p[1] 
       if (dup2(p[1], fileno(stdout)) == -1){
         perror("dup2");
         break;
       }
+      // Close unused part of pipe in parent process
       if (close(p[0]) == -1){
         perror("close");
         break;
