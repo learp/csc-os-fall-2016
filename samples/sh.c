@@ -68,9 +68,25 @@ runcmd(struct cmd *cmd)
   case '>':
   case '<':
     rcmd = (struct redircmd*)cmd;
-    fprintf(stderr, "redir not implemented\n");
-    // Your code here ...
+    r = open(rcmd->file, rcmd->mode, S_IRWXU);
+
+    if (r == -1){
+      perror("fopen");
+      break;
+    }
+
+    if (dup2(r, rcmd->fd) == -1)
+    {
+      perror("dup2");
+      break;
+    }
+
     runcmd(rcmd->cmd);
+
+    if (close(r) == -1){
+      perror("close");
+    }
+
     break;
 
   case '|':
