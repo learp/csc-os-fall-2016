@@ -36,9 +36,9 @@ struct pipecmd {
   struct cmd *right; // right side of pipe
 };
 
-void close1(int pid);  // Close but exits on failure.
+void close1(int);  // Close but exits on failure.
 int fork1(void);  // Fork but exits on failure.
-int dup21(int fd1, int fd2);  // dup2 but exits on failure.
+int dup21(int, int);  // dup2 but exits on failure.
 struct cmd *parsecmd(char*);
 
 // Execute cmd.  Never returns.
