@@ -39,6 +39,12 @@ struct pipecmd {
   struct cmd *right; // right side of pipe
 };
 
+struct smclcmd {
+  int type;
+  struct cmd *left;  // left side of semicolon
+  struct cmd *right;
+};
+
 int fork1(void);  // Fork but exits on failure.
 struct cmd *parsecmd(char*);
 
@@ -50,7 +56,11 @@ runcmd(struct cmd *cmd)
   struct execcmd *ecmd;
   struct pipecmd *pcmd;
   struct redircmd *rcmd;
-
+  struct smclcmd *scmd;
+  
+  int status = 0;
+  pid_t child_pid;
+  
   if(cmd == 0)
     exit(0);
   
@@ -93,8 +103,8 @@ runcmd(struct cmd *cmd)
     int fildes[2];
     pipe(fildes);
     
-    int status = 0;
-    pid_t child_pid = fork();
+    status = 0;
+    child_pid = fork();
     
     if(child_pid)
     {
@@ -113,6 +123,23 @@ runcmd(struct cmd *cmd)
       dup2(fildes[1], 1);
       runcmd(pcmd->left);
       close(fildes[1]);
+    }
+    break;
+    
+  case ';':
+    scmd = (struct smclcmd*)cmd;
+    
+    status = 0;
+    child_pid = fork();
+    
+    if(child_pid)
+    {
+      waitpid(child_pid, &status, WUNTRACED);
+      runcmd(scmd->right);
+    }
+    else
+    {
+      runcmd(scmd->left);
     }
     break;
   }
@@ -205,10 +232,23 @@ pipecmd(struct cmd *left, struct cmd *right)
   return (struct cmd*)cmd;
 }
 
+struct cmd*
+smclcmd(struct cmd *left, struct cmd *right)
+{
+  struct smclcmd *cmd;
+  
+  cmd = malloc(sizeof(*cmd));
+  memset(cmd, 0, sizeof(*cmd));
+  cmd->type = ';';
+  cmd->left = left;
+  cmd->right = right;
+  return (struct cmd*)cmd;
+}
+
 // Parsing
 
 char whitespace[] = " \t\r\n\v";
-char symbols[] = "<|>";
+char symbols[] = "<|>;";
 
 int
 gettoken(char **ps, char *es, char **q, char **eq)
@@ -225,6 +265,7 @@ gettoken(char **ps, char *es, char **q, char **eq)
   switch(*s){
   case 0:
     break;
+  case ';':
   case '|':
   case '<':
     s++;
@@ -262,6 +303,7 @@ peek(char **ps, char *es, char *toks)
 struct cmd *parseline(char**, char*);
 struct cmd *parsepipe(char**, char*);
 struct cmd *parseexec(char**, char*);
+struct cmd *parsesmcl(char**, char*);
 
 // make a copy of the characters in the input buffer, starting from s through es.
 // null-terminate the copy to make it a string.
@@ -310,6 +352,10 @@ parsepipe(char **ps, char *es)
     gettoken(ps, es, 0, 0);
     cmd = pipecmd(cmd, parsepipe(ps, es));
   }
+  else if(peek(ps, es, ";")){
+    gettoken(ps, es, 0, 0);
+    cmd = smclcmd(cmd, parsepipe(ps, es));
+  }
   return cmd;
 }
 
@@ -350,7 +396,7 @@ parseexec(char **ps, char *es)
 
   argc = 0;
   ret = parseredirs(ret, ps, es);
-  while(!peek(ps, es, "|")){
+  while(!peek(ps, es, "|") && !peek(ps, es, ";")){
     if((tok=gettoken(ps, es, &q, &eq)) == 0)
       break;
     if(tok != 'a') {
