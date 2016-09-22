@@ -1,4 +1,3 @@
-#include <errno.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <stdio.h>
@@ -46,6 +45,7 @@ struct cmd *parsecmd(char*);
 void
 runcmd(struct cmd *cmd)
 {
+  int p[2], fd;
   struct execcmd *ecmd;
   struct pipecmd *pcmd;
   struct redircmd *rcmd;
@@ -57,7 +57,6 @@ runcmd(struct cmd *cmd)
   default:
     fprintf(stderr, "unknown runcmd\n");
     exit(-1);
-
   case ' ':
     ecmd = (struct execcmd*)cmd;
     if(ecmd->argv[0] == 0)
@@ -71,21 +70,22 @@ runcmd(struct cmd *cmd)
 
   case '>':
   case '<':
-    // TODO: rewrite with open/close?
     rcmd = (struct redircmd*)cmd;
-    char *mode = (rcmd->type == '>') ? "w" : "r";
-    FILE *filestream = (rcmd->type == '>') ? stdout : stdin;
-    FILE *fp;
-    if ((fp = freopen(rcmd->file, mode, filestream)) == NULL) {
-      perror("freopen");
-    };
+    if ((fd = open(rcmd->file, rcmd->mode)) == -1) {
+      perror("open");
+      exit(-1);
+    }
+    dup21(fd, rcmd->fd); // rcmd->fd silently closed before being reused
+    close1(fd);
     runcmd(rcmd->cmd);
     break;
 
   case '|':
     pcmd = (struct pipecmd*)cmd;
-    int p[2];
-    pipe(p);
+    if (pipe(p) == -1) {
+      perror("pipe");
+      exit(-1);
+    }
     if (fork1() == 0) {
       // Child process will execute left side of the pipeline
       dup21(p[1], fileno(stdout));  // close stdout and duplicate write end of the pipe to stdout
@@ -96,7 +96,6 @@ runcmd(struct cmd *cmd)
       dup21(p[0], fileno(stdin));  // close stdin and duplicate read end of the pipe to stdin
       close1(p[0]);
       close1(p[1]);
-      // TODO: Should I call `wait` here?
       runcmd(pcmd->right);
     }
     break;
@@ -156,6 +155,7 @@ close1(int fd)
 {
   if (close(fd) == -1) {
     perror("close");
+    exit(-1);
   }
 }
 
@@ -165,6 +165,7 @@ dup21(int fd1, int fd2)
   int fd;
   if ((fd = dup2(fd1, fd2)) == -1) {
     perror("dup2");
+    exit(-1);
   }
   return fd;
 }
