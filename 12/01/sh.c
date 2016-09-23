@@ -6,6 +6,7 @@
 #include <assert.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/wait.h>
 
 // Simplifed xv6 shell.
 
@@ -37,6 +38,12 @@ struct pipecmd {
   struct cmd *right; // right side of pipe
 };
 
+struct semicoloncmd {
+  int type;          // ;
+  struct cmd *left;  // left side of pipe
+  struct cmd *right; // right side of pipe
+};
+
 int fork1(void);  // Fork but exits on failure.
 struct cmd *parsecmd(char*);
 
@@ -48,6 +55,7 @@ runcmd(struct cmd *cmd)
   struct execcmd *ecmd;
   struct pipecmd *pcmd;
   struct redircmd *rcmd;
+  struct semicoloncmd *scmd;
 
   if(cmd == 0)
     exit(0);
@@ -92,25 +100,35 @@ runcmd(struct cmd *cmd)
     };
     if (fork1() == 0) {
       //Child process, right part
-      close(p[1]); /* Close unused write end */
+      close(p[1]); // Close unused write end
       close(fileno(stdin));
       if (fcntl(p[0], F_DUPFD, fileno(stdin)) == -1) {
-        perror("Descriptor duplicationg failed");
+        perror("Descriptor duplication failed");
         break;
       }
       runcmd(pcmd->right);
       close(p[0]);
     } else {
       //Parent process, left part
-      close(p[0]); /* Close unused read end */
+      close(p[0]); // Close unused read end
       close(fileno(stdout));
       if (fcntl(p[1], F_DUPFD, fileno(stdout)) == -1) {
-        perror("Descriptor duplicationg failed");
+        perror("Descriptor duplication failed");
       }
       runcmd(pcmd->left);
       close(p[1]);
     }
     break;
+
+    case ';':
+      scmd = (struct semicoloncmd*)cmd;
+      pid_t pid = fork1();
+      int* status;
+      if (pid == 0) {
+        runcmd(scmd->left);
+      } else {
+        waitpid(pid, status, WUNTRACED);
+      }
   }    
   exit(0);
 }
@@ -201,10 +219,23 @@ pipecmd(struct cmd *left, struct cmd *right)
   return (struct cmd*)cmd;
 }
 
+struct cmd*
+semicoloncmd(struct cmd *left, struct cmd *right)
+{
+  struct semicoloncmd *cmd;
+
+  cmd = malloc(sizeof(*cmd));
+  memset(cmd, 0, sizeof(*cmd));
+  cmd->type = ';';
+  cmd->left = left;
+  cmd->right = right;
+  return (struct cmd*)cmd;
+}
+
 // Parsing
 
 char whitespace[] = " \t\r\n\v";
-char symbols[] = "<|>";
+char symbols[] = "<|;>";
 
 int
 gettoken(char **ps, char *es, char **q, char **eq)
@@ -226,6 +257,9 @@ gettoken(char **ps, char *es, char **q, char **eq)
     s++;
     break;
   case '>':
+    s++;
+    break;
+  case ';':
     s++;
     break;
   default:
@@ -258,6 +292,7 @@ peek(char **ps, char *es, char *toks)
 struct cmd *parseline(char**, char*);
 struct cmd *parsepipe(char**, char*);
 struct cmd *parseexec(char**, char*);
+struct cmd *parsesmcl(char**, char*);
 
 // make a copy of the characters in the input buffer, starting from s through es.
 // null-terminate the copy to make it a string.
@@ -293,6 +328,7 @@ parseline(char **ps, char *es)
 {
   struct cmd *cmd;
   cmd = parsepipe(ps, es);
+  fprintf(stdout, "%d\n", cmd->type);
   return cmd;
 }
 
@@ -304,7 +340,20 @@ parsepipe(char **ps, char *es)
   cmd = parseexec(ps, es);
   if(peek(ps, es, "|")){
     gettoken(ps, es, 0, 0);
-    cmd = pipecmd(cmd, parsepipe(ps, es));
+    cmd = pipecmd(cmd, parseline(ps, es));
+  }
+  return cmd;
+}
+
+struct cmd*
+parsesmcl(char **ps, char *es)
+{
+  struct cmd *cmd;
+
+  cmd = parseexec(ps, es);
+  if(peek(ps, es, ";")){
+    gettoken(ps, es, 0, 0);
+    cmd = semicoloncmd(cmd, parseline(ps, es));
   }
   return cmd;
 }
@@ -346,7 +395,7 @@ parseexec(char **ps, char *es)
 
   argc = 0;
   ret = parseredirs(ret, ps, es);
-  while(!peek(ps, es, "|")){
+  while(!peek(ps, es, "|;")){
     if((tok=gettoken(ps, es, &q, &eq)) == 0)
       break;
     if(tok != 'a') {
