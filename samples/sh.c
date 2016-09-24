@@ -70,7 +70,7 @@ runcmd(struct cmd *cmd)
   case '>':
   case '<':
     rcmd = (struct redircmd*)cmd;
-    int fd = open(rcmd->file, rcmd->mode, 0);
+    int fd = open(rcmd->file, rcmd->mode, S_IRUSR | S_IWUSR);
     dup2(fd, rcmd->fd);
     close(fd);
     runcmd(rcmd->cmd);
@@ -78,8 +78,6 @@ runcmd(struct cmd *cmd)
 
   case '|':
     pcmd = (struct pipecmd*)cmd;
-    fprintf(stderr, "pipe not implemented\n");
-    // Your code here ...
     break;
   }
   exit(0);
