@@ -61,18 +61,15 @@ runcmd(struct cmd *cmd)
     ecmd = (struct execcmd*)cmd;
     if(ecmd->argv[0] == 0)
       exit(0);
-    if(execvp(ecmd->argc[0], ecmd->argc[0]) == -1){
-      perror("Execution failed")
-      return errno
+    if(execvp(ecmd->argv[0], ecmd->argv) == -1)
+    {
+      fprintf(stderr, "Execution error: %s\n", strerror(errno));
     }
     break;
 
   case '>':
   case '<':
-    rcmd = (struct redircmd*)cmd;
-    fprintf(stderr, "redir not implemented\n");
-    // Your code here ...
-    runcmd(rcmd->cmd);
+
     break;
 
   case '|':
