@@ -69,7 +69,11 @@ runcmd(struct cmd *cmd)
 
   case '>':
   case '<':
-
+    rcmd = (struct redircmd*)cmd;
+    int fd = open(rcmd->file, rcmd->mode, 0);
+    dup2(fd, rcmd->fd);
+    close(fd);
+    runcmd(rcmd->cmd);
     break;
 
   case '|':
