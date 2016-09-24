@@ -78,6 +78,20 @@ runcmd(struct cmd *cmd)
 
   case '|':
     pcmd = (struct pipecmd*)cmd;
+    int fds[2];
+    pipe(fds);
+    int c_pid;
+    if(fork1() == 0)
+    {
+      close(fds[0]);
+      dup2(fds[1], 1);
+      runcmd(pcmd->left);
+    }
+    else {
+      close(fds[1]);
+      dup2(fds[0], 0);
+      runcmd(pcmd->right);
+    }
     break;
   }
   exit(0);
