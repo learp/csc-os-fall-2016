@@ -9,6 +9,7 @@
 // Simplifed xv6 shell.
 
 #define MAXARGS 10
+#define MAX_BACKGROUND_PROCESS_TO_TRACK 100
 
 // All commands have at least a type. Have looked at the type, the code
 // typically casts the *cmd to some specific cmd type.
@@ -144,6 +145,8 @@ getcmd(char *buf, int nbuf) {
 
 int main(void) {
     static char buf[100];
+    static int background_pids[100];
+    int current_counter = 0;
     int status;
 
     // Read and run input commands.
@@ -168,7 +171,39 @@ int main(void) {
             // Write result to status, but nobody cares
             waitpid(pid, &status, 0);
         } else {
-            fprintf(stdout, "[1] %d\n", pid);
+            int index = current_counter++ % MAX_BACKGROUND_PROCESS_TO_TRACK;
+            int cur_index_pid = background_pids[index];
+            /*
+             * If next slot is occupied, fallback to slow version:
+             * iterate over all queue to find empty slot.
+             */
+            if (cur_index_pid != 0) {
+                for (int i = 0; i < MAX_BACKGROUND_PROCESS_TO_TRACK; ++i) {
+                    if (background_pids[i] == 0) {
+                        cur_index_pid = 0;
+                        index = i;
+                    }
+                }
+            }
+
+            if (cur_index_pid != 0) {
+                fprintf(stderr, "Background process queue is overflowed,"
+                        " will not report status of started process");
+            } else {
+                background_pids[index] = pid;
+                fprintf(stdout, "[%d] %d\n", index, pid);
+            }
+        }
+
+        // Poll background children
+        int pid_status = 0;
+        for (int i = 0; i < MAX_BACKGROUND_PROCESS_TO_TRACK; ++i) {
+            int cur_pid = background_pids[i];
+            if (cur_pid != 0 && waitpid(cur_pid, &pid_status, WNOHANG)) {
+                // Cleanup slot in queue
+                background_pids[i] = 0;
+                fprintf(stdout, "[%d]+ %d done, exit status: %d\n", i, cur_pid, pid_status);
+            }
         }
     }
     exit(0);
