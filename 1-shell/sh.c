@@ -6,6 +6,7 @@
 #include <assert.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <errno.h>
 
 // Simplifed xv6 shell.
 
@@ -60,22 +61,37 @@ runcmd(struct cmd *cmd)
     ecmd = (struct execcmd*)cmd;
     if(ecmd->argv[0] == 0)
       exit(0);
-    fprintf(stderr, "exec not implemented\n");
-    // Your code here ...
+    if(execvp(ecmd->argv[0], ecmd->argv) == -1)
+    {
+      fprintf(stderr, "Execution error: %s\n", strerror(errno));
+    }
     break;
 
   case '>':
   case '<':
     rcmd = (struct redircmd*)cmd;
-    fprintf(stderr, "redir not implemented\n");
-    // Your code here ...
+    int fd = open(rcmd->file, rcmd->mode, S_IRUSR | S_IWUSR);
+    dup2(fd, rcmd->fd);
+    close(fd);
     runcmd(rcmd->cmd);
     break;
 
   case '|':
     pcmd = (struct pipecmd*)cmd;
-    fprintf(stderr, "pipe not implemented\n");
-    // Your code here ...
+    int fds[2];
+    pipe(fds);
+    int c_pid;
+    if(fork1() == 0)
+    {
+      close(fds[0]);
+      dup2(fds[1], 1);
+      runcmd(pcmd->left);
+    }
+    else {
+      close(fds[1]);
+      dup2(fds[0], 0);
+      runcmd(pcmd->right);
+    }
     break;
   }
   exit(0);
