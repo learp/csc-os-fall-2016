@@ -14,15 +14,18 @@
 // typically casts the *cmd to some specific cmd type.
 struct cmd {
     int type;          //  ' ' (exec), | (pipe), '<' or '>' for redirection
+    int isBackground;
 };
 
 struct execcmd {
     int type;              // ' '
+    int isBackground;
     char *argv[MAXARGS];   // arguments to the command to be exec-ed
 };
 
 struct redircmd {
     int type;          // < or >
+    int isBackground;
     struct cmd *cmd;   // the command to be run (e.g., an execcmd)
     char *file;        // the input/output file
     int mode;          // the mode to open the file with
@@ -31,6 +34,7 @@ struct redircmd {
 
 struct pipecmd {
     int type;          // |
+    int isBackground;
     struct cmd *left;  // left side of pipe
     struct cmd *right; // right side of pipe
 };
@@ -138,10 +142,9 @@ getcmd(char *buf, int nbuf) {
     return 0;
 }
 
-int
-main(void) {
+int main(void) {
     static char buf[100];
-    int fd, r;
+    int status;
 
     // Read and run input commands.
     while (getcmd(buf, sizeof(buf)) >= 0) {
@@ -149,13 +152,24 @@ main(void) {
             // Clumsy but will have to do for now.
             // Chdir has no effect on the parent if run in the child.
             buf[strlen(buf) - 1] = 0;  // chop \n
-            if (chdir(buf + 3) < 0)
+            if (chdir(buf + 3) < 0) {
                 fprintf(stderr, "cannot cd %s\n", buf + 3);
+            }
             continue;
         }
-        if (fork_or_exit() == 0)
-            runcmd(parsecmd(buf));
-        wait(&r);
+
+        struct cmd *cmd = parsecmd(buf);
+        int pid;
+        if ((pid = fork_or_exit()) == 0) {
+            runcmd(cmd);
+        }
+
+        if (!cmd->isBackground) {
+            // Write result to status, but nobody cares
+            waitpid(pid, &status, 0);
+        } else {
+            fprintf(stdout, "[1] %d\n", pid);
+        }
     }
     exit(0);
 }
@@ -277,18 +291,44 @@ char
     return c;
 }
 
-struct cmd *
-parsecmd(char *s) {
-    char *es;
+struct cmd *parsecmd(char *string) {
+    char *end_of_string;
     struct cmd *cmd;
 
-    es = s + strlen(s);
-    cmd = parseline(&s, es);
-    peek(&s, es, "");
-    if (s != es) {
-        fprintf(stderr, "leftovers: %s\n", s);
+    size_t length = strlen(string);
+    end_of_string = string + length;
+
+    /*
+     * Check that command line ends
+     * with '&' and whitespaces.
+     * If so, treat cmd as background one
+     * and trim string to '&' position
+     * (so it will be not parsed), else
+     * just ignore presence of '&'
+     */
+    int isBackground = 0;
+    char *iterator = end_of_string;
+    while (iterator >= string) {
+        if (strchr(whitespace, *iterator)) {
+            --iterator;
+        } else {
+            if (*iterator == '&') {
+                isBackground = 1;
+                // Make it disappear
+                *iterator = ' ';
+            }
+            break;
+        }
+    }
+
+    cmd = parseline(&string, end_of_string);
+    peek(&string, end_of_string, "");
+    if (string != end_of_string) {
+        fprintf(stderr, "leftovers: %s\n", string);
         exit(-1);
     }
+
+    cmd->isBackground = isBackground;
     return cmd;
 }
 
