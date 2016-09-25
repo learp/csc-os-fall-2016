@@ -88,6 +88,7 @@ runcmd(struct cmd *cmd)
     close(rcmd->fd);
     if (fcntl(f, F_DUPFD, rcmd->fd) == -1) {
       perror("Descriptor duplicationg failed");
+      break;
     }
     runcmd(rcmd->cmd);
     close(f);
@@ -128,6 +129,7 @@ runcmd(struct cmd *cmd)
         runcmd(scmd->left);
       } else {
         waitpid(pid, status, WUNTRACED);
+	runcmd(scmd->right);
       }
   }    
   exit(0);
@@ -327,31 +329,11 @@ struct cmd*
 parseline(char **ps, char *es)
 {
   struct cmd *cmd;
-  cmd = parsepipe(ps, es);
-  fprintf(stdout, "%d\n", cmd->type);
-  return cmd;
-}
-
-struct cmd*
-parsepipe(char **ps, char *es)
-{
-  struct cmd *cmd;
-
   cmd = parseexec(ps, es);
   if(peek(ps, es, "|")){
     gettoken(ps, es, 0, 0);
     cmd = pipecmd(cmd, parseline(ps, es));
-  }
-  return cmd;
-}
-
-struct cmd*
-parsesmcl(char **ps, char *es)
-{
-  struct cmd *cmd;
-
-  cmd = parseexec(ps, es);
-  if(peek(ps, es, ";")){
+  } else if(peek(ps, es, ";")){
     gettoken(ps, es, 0, 0);
     cmd = semicoloncmd(cmd, parseline(ps, es));
   }
