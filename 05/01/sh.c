@@ -101,7 +101,9 @@ void runcmd(struct cmd *cmd)
             // create pipe pipe_fds[1] --> pipe_fds[0]
             test_call_return(pipe(pipe_fds), "pipe");
 
-            if (fork1() == 0)
+            int pid = fork1();
+            test_call_return(pid, "fork") 
+            if (pid == 0)
             {
                 // child process has pipe_fds[1] as descriptor of output stream
                 // and execute the left command
