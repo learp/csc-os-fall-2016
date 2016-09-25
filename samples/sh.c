@@ -56,28 +56,66 @@ runcmd(struct cmd *cmd)
     fprintf(stderr, "unknown runcmd\n");
     exit(-1);
 
-  case ' ':
-    ecmd = (struct execcmd*)cmd;
-    if(ecmd->argv[0] == 0)
-      exit(0);
-    fprintf(stderr, "exec not implemented\n");
-    // Your code here ...
-    break;
+    case ' ':
+      ecmd = (struct execcmd*)cmd;
+          if(ecmd->argv[0] == 0)
+            exit(0);
+          if (-1 == execvp(ecmd->argv[0], ecmd->argv)) {
+            fprintf(stderr, "error while executing\n");
+          }
+          break;
 
-  case '>':
-  case '<':
-    rcmd = (struct redircmd*)cmd;
-    fprintf(stderr, "redir not implemented\n");
-    // Your code here ...
-    runcmd(rcmd->cmd);
-    break;
+    case '>':
+    case '<':
+      rcmd = (struct redircmd*)cmd;
+          int fd = open(rcmd->file, rcmd->mode, 0644);
+          if (-1 == fd) {
+            fprintf(stderr, "error while opening file\n");
+            break;
+          }
 
-  case '|':
-    pcmd = (struct pipecmd*)cmd;
-    fprintf(stderr, "pipe not implemented\n");
-    // Your code here ...
-    break;
-  }    
+          if (-1 == dup2(fd, rcmd->fd)) {
+            fprintf(stderr, "error while redirecting\n");
+            break;
+          }
+
+          runcmd(rcmd->cmd);
+
+          if (-1 == close(fd)) {
+            fprintf(stderr, "error while closing file\n");
+          }
+          break;
+
+    case '|':
+      pcmd = (struct pipecmd*)cmd;
+          if (-1 == pipe(p)) {
+            fprintf(stderr, "error while creating a pipe\n");
+          }
+          if (fork1() > 0) {
+            if (-1 == dup2(p[1], fileno(stdout))) {
+              fprintf(stderr, "error while redirecting on pipe\n");
+            }
+            if (-1 == close(p[0])) {
+              fprintf(stderr, "error while closing on pipe\n");
+            }
+            runcmd(pcmd->left);
+            if (- 1 == close(p[1])) {
+              fprintf(stderr, "error while closing on pipe\n");
+            }
+          } else {
+            if (-1 == dup2(p[0], fileno(stdin))) {
+              fprintf(stderr, "error while redirecting on pipe\n");
+            }
+            if (-1 == close(p[1])) {
+              fprintf(stderr, "error while closing on pipe\n");
+            }
+            runcmd(pcmd->right);
+            if (-1 == close(p[0])) {
+              fprintf(stderr, "error while closing on pipe\n");
+            }
+          }
+          break;
+  }
   exit(0);
 }
 

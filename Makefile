@@ -1,6 +1,6 @@
 default: build
 
-build: src/sh.c
-	gcc ./src/sh.c -o sh
+build: samples/sh.c
+	gcc ./samples/sh.c -o sh
 clean:
 	-rm -f ./sh
