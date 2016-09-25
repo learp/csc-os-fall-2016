@@ -99,7 +99,7 @@ runcmd(struct cmd *cmd)
           fprintf(stderr, "error while closing on pipe\n");
         }
         runcmd(pcmd->left);
-        if (- 1 == close(p[1])) {
+        if (-1 == close(p[1])) {
           fprintf(stderr, "error while closing on pipe\n");
         }
       } else {
