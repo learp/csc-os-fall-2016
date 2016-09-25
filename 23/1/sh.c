@@ -143,6 +143,10 @@ getcmd(char *buf, int nbuf) {
     return 0;
 }
 
+int tryParsePid(char *string);
+
+void wait_for_child(char *buf, int *background_pids);
+
 int main(void) {
     static char buf[100];
     static int background_pids[MAX_BACKGROUND_PROCESS_TO_TRACK];
@@ -158,6 +162,12 @@ int main(void) {
             if (chdir(buf + 3) < 0) {
                 fprintf(stderr, "cannot cd %s\n", buf + 3);
             }
+            continue;
+        }
+
+        // Pretty tough workaround, but simpler for one-pid version than anything else
+        if (buf[0] == 'w' && buf[1] == 'a' && buf[2] == 'i' && buf[3] == 't' && buf[4] == ' ') {
+            wait_for_child(buf, background_pids);
             continue;
         }
 
@@ -191,7 +201,7 @@ int main(void) {
                         " will not report exit status of started process");
             } else {
                 background_pids[index] = pid;
-                fprintf(stdout, "[%d] %d\n", index, pid);
+                fprintf(stdout, "[%d] %d\n", index + 1, pid);
             }
         }
 
@@ -207,6 +217,50 @@ int main(void) {
         }
     }
     exit(0);
+}
+
+void wait_for_child(char *buf, int *background_pids) {
+    int isJobId = buf[5] == '%';
+    char *ptr = buf + (isJobId ? 6 : 5);
+
+    int id = tryParsePid(ptr);
+
+    if (id == -1 || id == 0) {
+        fprintf(stderr, "Invalid pid or job id %s\n", ptr);
+        return;
+    }
+
+    if (isJobId) {
+        // Fix 0-indexing
+        id -= 1;
+
+        if (id >= MAX_BACKGROUND_PROCESS_TO_TRACK || !background_pids[id]) {
+            fprintf(stderr, "wait: %%%d: no such job\n", id);
+        } else {
+            int job_status;
+            waitpid(background_pids[id], &job_status, 0);
+            fprintf(stdout, "[%d]+ %d done, exit status: %d\n", id + 1, background_pids[id], job_status);
+            background_pids[id] = 0;
+        }
+
+    } else {
+        int index = -1;
+        for (int i = 0; i < MAX_BACKGROUND_PROCESS_TO_TRACK; ++i) {
+            if (background_pids[i] == id) {
+                index = i;
+                break;
+            }
+        }
+
+        if (index == -1) {
+            fprintf(stderr, "wait: pid %d is not a child of this shell\n", id);
+        } else {
+            int job_status;
+            waitpid(background_pids[id], &job_status, 0);
+            fprintf(stdout, "[%d]+ %d done, exit status: %d\n", index + 1, id, job_status);
+            background_pids[id] = 0;
+        }
+    }
 }
 
 int fork_or_exit(void) {
@@ -260,6 +314,27 @@ pipecmd(struct cmd *left, struct cmd *right) {
 
 char whitespace[] = " \t\r\n\v";
 char symbols[] = "<|>";
+
+int tryParsePid(char *string) {
+    size_t len = strlen(string);
+    char *end = string + len;
+    char *it = string;
+    while (*it >= '0' && *it <= '9') {
+        ++it;
+    }
+
+    char *it2 = it;
+    while (it2 < end && strchr(whitespace, *it2)) {
+        ++it2;
+    }
+
+    if (it2 != end) {
+        return -1;
+    }
+
+    *it = 0; // Trim whitespaces
+    return atoi(string);
+}
 
 int
 gettoken(char **ps, char *es, char **q, char **eq) {
