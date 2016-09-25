@@ -120,6 +120,10 @@ void runcmd(struct cmd *cmd)
                 test_call_return(dup2(pipe_fds[0], STDIN_FILENO), "dup");
                 test_call_return(close(pipe_fds[0]), "close pipe input");
                 test_call_return(close(pipe_fds[1]), "close pipe output");
+
+                // run right command after left finished
+                int ret;
+                test_call_return(wait(&ret), "wait");
                 runcmd(pcmd->right);
             }
 
