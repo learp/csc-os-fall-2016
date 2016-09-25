@@ -145,7 +145,7 @@ getcmd(char *buf, int nbuf) {
 
 int main(void) {
     static char buf[100];
-    static int background_pids[100];
+    static int background_pids[MAX_BACKGROUND_PROCESS_TO_TRACK];
     int current_counter = 0;
     int status;
 
@@ -188,7 +188,7 @@ int main(void) {
 
             if (cur_index_pid != 0) {
                 fprintf(stderr, "Background process queue is overflowed,"
-                        " will not report status of started process");
+                        " will not report exit status of started process");
             } else {
                 background_pids[index] = pid;
                 fprintf(stdout, "[%d] %d\n", index, pid);
