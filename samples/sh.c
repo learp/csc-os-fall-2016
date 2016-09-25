@@ -113,20 +113,20 @@ runcmd(struct cmd *cmd)
         if (dup2(p[1], 1) == -1)
             errordup2();
 
-        if (close(p[1]))
+        if (close(p[1]) == -1)
             errorclose();
 
         runcmd(pcmd->left);
     }
     else
     {
-        if (close(p[1]))
+        if (close(p[1]) == -1)
             errorclose();
 
         if (dup2(p[0], 0) == -1)
             errordup2();
 
-        if (close(p[0]))
+        if (close(p[0]) == -1)
             errorclose();
 
         runcmd(pcmd->right);
