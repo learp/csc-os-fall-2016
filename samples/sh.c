@@ -6,6 +6,7 @@
 #include <assert.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <errno.h>
 
 // Simplifed xv6 shell.
 
@@ -23,7 +24,7 @@ struct execcmd {
 };
 
 struct redircmd {
-  int type;          // < or > 
+  int type;          // < or >
   struct cmd *cmd;   // the command to be run (e.g., an execcmd)
   char *file;        // the input/output file
   int mode;          // the mode to open the file with
@@ -39,6 +40,9 @@ struct pipecmd {
 int fork1(void);  // Fork but exits on failure.
 struct cmd *parsecmd(char*);
 
+void errordup2(); //handle dup2 errors
+void errorclose(); //handle close errors
+
 // Execute cmd.  Never returns.
 void
 runcmd(struct cmd *cmd)
@@ -50,7 +54,7 @@ runcmd(struct cmd *cmd)
 
   if(cmd == 0)
     exit(0);
-  
+
   switch(cmd->type){
   default:
     fprintf(stderr, "unknown runcmd\n");
@@ -60,36 +64,100 @@ runcmd(struct cmd *cmd)
     ecmd = (struct execcmd*)cmd;
     if(ecmd->argv[0] == 0)
       exit(0);
-    fprintf(stderr, "exec not implemented\n");
-    // Your code here ...
+
+    if (execvp(ecmd->argv[0], ecmd->argv) == -1) {
+        perror("Exec error");
+        exit(errno);
+    }
+
     break;
 
   case '>':
   case '<':
     rcmd = (struct redircmd*)cmd;
-    fprintf(stderr, "redir not implemented\n");
-    // Your code here ...
+
+    int fd = open(rcmd->file, rcmd->mode, S_IRWXU);
+
+    if (fd == -1) {
+        perror("Error when open file");
+        exit(errno);
+    }
+
+    if (dup2(fd, rcmd->fd) == -1)
+        errordup2();
+
+    if (close(fd) == -1)
+        errorclose();
+
     runcmd(rcmd->cmd);
     break;
 
   case '|':
     pcmd = (struct pipecmd*)cmd;
-    fprintf(stderr, "pipe not implemented\n");
-    // Your code here ...
+
+    int pid;
+
+    if (pipe(p) == -1) {
+        perror("pipe");
+        exit(errno);
+    }
+
+    pid = fork1();
+
+    if (pid == 0)
+    {
+
+        if (close(p[0]) == -1)
+            errorclose();
+
+        if (dup2(p[1], 1) == -1)
+            errordup2();
+
+        if (close(p[1]))
+            errorclose();
+
+        runcmd(pcmd->left);
+    }
+    else
+    {
+        if (close(p[1]))
+            errorclose();
+
+        if (dup2(p[0], 0) == -1)
+            errordup2();
+
+        if (close(p[0]))
+            errorclose();
+
+        runcmd(pcmd->right);
+    }
+
     break;
-  }    
+  }
   exit(0);
+}
+
+void
+errordup2() {
+    perror("Error when copy descriptor");
+    exit(errno);
+}
+
+void
+errorclose() {
+    perror("Error when close file");
+    exit(errno);
 }
 
 int
 getcmd(char *buf, int nbuf)
 {
-  
+
   if (isatty(fileno(stdin)))
     fprintf(stdout, "$ ");
   memset(buf, 0, nbuf);
   fgets(buf, nbuf, stdin);
-  if(buf[0] == 0) // EOF
+  if (buf[0] == 0) // EOF
     return -1;
   return 0;
 }
@@ -121,7 +189,7 @@ int
 fork1(void)
 {
   int pid;
-  
+
   pid = fork();
   if(pid == -1)
     perror("fork");
@@ -177,7 +245,7 @@ gettoken(char **ps, char *es, char **q, char **eq)
 {
   char *s;
   int ret;
-  
+
   s = *ps;
   while(s < es && strchr(whitespace, *s))
     s++;
@@ -202,7 +270,7 @@ gettoken(char **ps, char *es, char **q, char **eq)
   }
   if(eq)
     *eq = s;
-  
+
   while(s < es && strchr(whitespace, *s))
     s++;
   *ps = s;
@@ -213,7 +281,7 @@ int
 peek(char **ps, char *es, char *toks)
 {
   char *s;
-  
+
   s = *ps;
   while(s < es && strchr(whitespace, *s))
     s++;
@@ -227,7 +295,7 @@ struct cmd *parseexec(char**, char*);
 
 // make a copy of the characters in the input buffer, starting from s through es.
 // null-terminate the copy to make it a string.
-char 
+char
 *mkcopy(char *s, char *es)
 {
   int n = es - s;
@@ -244,7 +312,7 @@ parsecmd(char *s)
   char *es;
   struct cmd *cmd;
 
-  es = s + strlen(s);
+  es = s + strlen(s); //конец *s
   cmd = parseline(&s, es);
   peek(&s, es, "");
   if(s != es){
@@ -306,7 +374,7 @@ parseexec(char **ps, char *es)
   int tok, argc;
   struct execcmd *cmd;
   struct cmd *ret;
-  
+
   ret = execcmd();
   cmd = (struct execcmd*)ret;
 
@@ -330,3 +398,4 @@ parseexec(char **ps, char *es)
   cmd->argv[argc] = 0;
   return ret;
 }
+
