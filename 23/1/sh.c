@@ -147,6 +147,10 @@ int tryParsePid(char *string);
 
 void wait_for_child(char *buf, int *background_pids);
 
+void register_background_child(int *background_pids, int *current_counter, int pid);
+
+void process_background_children(int *background_pids);
+
 int main(void) {
     static char buf[100];
     static int background_pids[MAX_BACKGROUND_PROCESS_TO_TRACK];
@@ -181,42 +185,49 @@ int main(void) {
             // Write result to status, but nobody cares
             waitpid(pid, &status, 0);
         } else {
-            int index = current_counter++ % MAX_BACKGROUND_PROCESS_TO_TRACK;
-            int cur_index_pid = background_pids[index];
-            /*
-             * If next slot is occupied, fallback to slow version:
-             * iterate over all queue to find empty slot.
-             */
-            if (cur_index_pid != 0) {
-                for (int i = 0; i < MAX_BACKGROUND_PROCESS_TO_TRACK; ++i) {
-                    if (background_pids[i] == 0) {
-                        cur_index_pid = 0;
-                        index = i;
-                    }
-                }
-            }
+            register_background_child(background_pids, &current_counter, pid);
 
-            if (cur_index_pid != 0) {
-                fprintf(stderr, "Background process queue is overflowed,"
-                        " will not report exit status of started process");
-            } else {
-                background_pids[index] = pid;
-                fprintf(stdout, "[%d] %d\n", index + 1, pid);
-            }
         }
+        process_background_children(background_pids);
+    }
+    exit(0);
+}
 
-        // Poll background children
-        int pid_status = 0;
+void process_background_children(int *background_pids) {// Poll background children
+    int pid_status = 0;
+    for (int i = 0; i < MAX_BACKGROUND_PROCESS_TO_TRACK; ++i) {
+        int cur_pid = background_pids[i];
+        if (cur_pid != 0 && waitpid(cur_pid, &pid_status, WNOHANG)) {
+            // Cleanup slot in queue
+            background_pids[i] = 0;
+            fprintf(stdout, "[%d]+ %d done, exit status: %d\n", i, cur_pid, pid_status);
+        }
+    }
+}
+
+void register_background_child(int *background_pids, int *current_counter, int pid) {
+    int index = (*current_counter)++ % MAX_BACKGROUND_PROCESS_TO_TRACK;
+    int cur_index_pid = background_pids[index];
+    /*
+     * If next slot is occupied, fallback to slow version:
+     * iterate over all queue to find empty slot.
+     */
+    if (cur_index_pid != 0) {
         for (int i = 0; i < MAX_BACKGROUND_PROCESS_TO_TRACK; ++i) {
-            int cur_pid = background_pids[i];
-            if (cur_pid != 0 && waitpid(cur_pid, &pid_status, WNOHANG)) {
-                // Cleanup slot in queue
-                background_pids[i] = 0;
-                fprintf(stdout, "[%d]+ %d done, exit status: %d\n", i, cur_pid, pid_status);
+            if (background_pids[i] == 0) {
+                cur_index_pid = 0;
+                index = i;
             }
         }
     }
-    exit(0);
+
+    if (cur_index_pid != 0) {
+        fprintf(stderr, "Background process queue is overflowed,"
+                " will not report exit status of started process");
+    } else {
+        background_pids[index] = pid;
+        fprintf(stdout, "[%d] %d\n", index + 1, pid);
+    }
 }
 
 void wait_for_child(char *buf, int *background_pids) {
