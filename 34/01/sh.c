@@ -14,26 +14,26 @@
 // All commands have at least a type. Have looked at the type, the code
 // typically casts the *cmd to some specific cmd type.
 struct cmd {
-    int type;          //  ' ' (exec), | (pipe), '<' or '>' for redirection
+  int type;          //  ' ' (exec), | (pipe), '<' or '>' for redirection
 };
 
 struct execcmd {
-    int type;              // ' '
-    char *argv[MAXARGS];   // arguments to the command to be exec-ed
+  int type;              // ' '
+  char *argv[MAXARGS];   // arguments to the command to be exec-ed
 };
 
 struct redircmd {
-    int type;          // < or >
-    struct cmd *cmd;   // the command to be run (e.g., an execcmd)
-    char *file;        // the input/output file
-    int mode;          // the mode to open the file with
-    int fd;            // the file descriptor number to use for the file
+  int type;          // < or > 
+  struct cmd *cmd;   // the command to be run (e.g., an execcmd)
+  char *file;        // the input/output file
+  int mode;          // the mode to open the file with
+  int fd;            // the file descriptor number to use for the file
 };
 
 struct pipecmd {
-    int type;          // |
-    struct cmd *left;  // left side of pipe
-    struct cmd *right; // right side of pipe
+  int type;          // |
+  struct cmd *left;  // left side of pipe
+  struct cmd *right; // right side of pipe
 };
 
 int fork1(void);  // Fork but exits on failure.
@@ -50,33 +50,71 @@ runcmd(struct cmd *cmd)
 
   if(cmd == 0)
     exit(0);
-
+  
   switch(cmd->type){
-    default:
-      fprintf(stderr, "unknown runcmd\n");
-          exit(-1);
+  default:
+    fprintf(stderr, "unknown runcmd\n");
+    exit(-1);
 
     case ' ':
-      ecmd = (struct execcmd*)cmd;
-          if(ecmd->argv[0] == 0)
-            exit(0);
-          fprintf(stderr, "exec not implemented\n");
-          // Your code here ...
-          break;
+      ecmd = (struct execcmd *) cmd;
+      if (ecmd->argv[0] == 0)
+        exit(0);
+      if (-1 == execvp(ecmd->argv[0], ecmd->argv)) {
+        fprintf(stderr, "error while executing\n");
+      }
+      break;
 
     case '>':
     case '<':
       rcmd = (struct redircmd*)cmd;
-          fprintf(stderr, "redir not implemented\n");
-          // Your code here ...
-          runcmd(rcmd->cmd);
-          break;
+      int fd = open(rcmd->file, rcmd->mode, 0644);
+      if (-1 == fd) {
+        fprintf(stderr, "error while opening file\n");
+        break;
+      }
+
+      if (-1 == dup2(fd, rcmd->fd)) {
+        fprintf(stderr, "error while redirecting\n");
+        break;
+      }
+
+      runcmd(rcmd->cmd);
+
+      if (-1 == close(fd)) {
+        fprintf(stderr, "error while closing file\n");
+      }
+      break;
 
     case '|':
       pcmd = (struct pipecmd*)cmd;
-          fprintf(stderr, "pipe not implemented\n");
-          // Your code here ...
-          break;
+      if (-1 == pipe(p)) {
+        fprintf(stderr, "error while creating a pipe\n");
+      }
+      if (fork1() > 0) {
+        if (-1 == dup2(p[1], fileno(stdout))) {
+          fprintf(stderr, "error while redirecting on pipe\n");
+        }
+        if (-1 == close(p[0])) {
+          fprintf(stderr, "error while closing on pipe\n");
+        }
+        runcmd(pcmd->left);
+        if (-1 == close(p[1])) {
+          fprintf(stderr, "error while closing on pipe\n");
+        }
+      } else {
+        if (-1 == dup2(p[0], fileno(stdin))) {
+          fprintf(stderr, "error while redirecting on pipe\n");
+        }
+        if (-1 == close(p[1])) {
+          fprintf(stderr, "error while closing on pipe\n");
+        }
+        runcmd(pcmd->right);
+        if (-1 == close(p[0])) {
+          fprintf(stderr, "error while closing on pipe\n");
+        }
+      }
+      break;
   }
   exit(0);
 }
@@ -84,7 +122,7 @@ runcmd(struct cmd *cmd)
 int
 getcmd(char *buf, int nbuf)
 {
-
+  
   if (isatty(fileno(stdin)))
     fprintf(stdout, "$ ");
   memset(buf, 0, nbuf);
@@ -121,7 +159,7 @@ int
 fork1(void)
 {
   int pid;
-
+  
   pid = fork();
   if(pid == -1)
     perror("fork");
@@ -177,7 +215,7 @@ gettoken(char **ps, char *es, char **q, char **eq)
 {
   char *s;
   int ret;
-
+  
   s = *ps;
   while(s < es && strchr(whitespace, *s))
     s++;
@@ -185,24 +223,24 @@ gettoken(char **ps, char *es, char **q, char **eq)
     *q = s;
   ret = *s;
   switch(*s){
-    case 0:
-      break;
-    case '|':
-    case '<':
+  case 0:
+    break;
+  case '|':
+  case '<':
+    s++;
+    break;
+  case '>':
+    s++;
+    break;
+  default:
+    ret = 'a';
+    while(s < es && !strchr(whitespace, *s) && !strchr(symbols, *s))
       s++;
-          break;
-    case '>':
-      s++;
-          break;
-    default:
-      ret = 'a';
-          while(s < es && !strchr(whitespace, *s) && !strchr(symbols, *s))
-            s++;
-          break;
+    break;
   }
   if(eq)
     *eq = s;
-
+  
   while(s < es && strchr(whitespace, *s))
     s++;
   *ps = s;
@@ -213,7 +251,7 @@ int
 peek(char **ps, char *es, char *toks)
 {
   char *s;
-
+  
   s = *ps;
   while(s < es && strchr(whitespace, *s))
     s++;
@@ -227,7 +265,7 @@ struct cmd *parseexec(char**, char*);
 
 // make a copy of the characters in the input buffer, starting from s through es.
 // null-terminate the copy to make it a string.
-char
+char 
 *mkcopy(char *s, char *es)
 {
   int n = es - s;
@@ -288,12 +326,12 @@ parseredirs(struct cmd *cmd, char **ps, char *es)
       exit(-1);
     }
     switch(tok){
-      case '<':
-        cmd = redircmd(cmd, mkcopy(q, eq), '<');
-            break;
-      case '>':
-        cmd = redircmd(cmd, mkcopy(q, eq), '>');
-            break;
+    case '<':
+      cmd = redircmd(cmd, mkcopy(q, eq), '<');
+      break;
+    case '>':
+      cmd = redircmd(cmd, mkcopy(q, eq), '>');
+      break;
     }
   }
   return cmd;
@@ -306,7 +344,7 @@ parseexec(char **ps, char *es)
   int tok, argc;
   struct execcmd *cmd;
   struct cmd *ret;
-
+  
   ret = execcmd();
   cmd = (struct execcmd*)ret;
 
