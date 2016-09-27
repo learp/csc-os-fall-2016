@@ -117,10 +117,15 @@ runcmd(struct cmd *cmd)
         fprintf(stderr, "fail to duplicate output fd of pipe\n");
         exit(-1);
       }
-      // closing another pipe end
+      // closing that pipe end, use "1" instead
       if (close(pipefd[1]) == -1) {
         fprintf(stderr, "fail to close output fd of pipe\n");
         exit(-1);      
+      }
+      // closing another pipe end
+      if (close(pipefd[0]) == -1) {
+        fprintf(stderr, "fail to close input fd of pipe\n");
+        exit(-1);
       }
       // executing command
       runcmd(pcmd->left);
@@ -135,6 +140,11 @@ runcmd(struct cmd *cmd)
     // duplicating one pipe end to stdio
     if (dup2(pipefd[0], 0) == -1) {
       fprintf(stderr, "fail to duplicate input fd of pipe\n");
+      exit(-1);
+    }
+    // closing that pipe end, use "0" instead
+    if (close(pipefd[0]) == -1) {
+      fprintf(stderr, "fail to close input fd of pipe\n");
       exit(-1);
     }
     // closing another pipe end
