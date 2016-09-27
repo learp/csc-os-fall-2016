@@ -1,4 +1,5 @@
 build:
-	gcc -Wall -o sh cmd.c
+	gcc -Werror -o sh cmd.c
+
 clean:
 	rm -f sh y y1 cmd.sh
