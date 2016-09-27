@@ -71,7 +71,8 @@ runcmd(struct cmd *cmd)
   case '>':
   case '<':
     rcmd = (struct redircmd*)cmd;
-    if ((fd = open(rcmd->file, rcmd->mode)) == -1) {
+    // S_IRWXU -  00700, owner can read/write/execute
+    if ((fd = open(rcmd->file, rcmd->mode, S_IRWXU)) == -1) {
       perror("open");
       exit(-1);
     }
