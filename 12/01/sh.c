@@ -69,11 +69,8 @@ runcmd(struct cmd *cmd)
     ecmd = (struct execcmd*)cmd;
     if(ecmd->argv[0] == 0)
       exit(0);
-    if (fork1() == 0) {
-      // Child process
-      if (execvp(ecmd->argv[0], ecmd->argv) == -1) {
-        perror("Execution failed");
-      }
+    if (execvp(ecmd->argv[0], ecmd->argv) == -1) {
+      perror("Execution failed");
     }
     break;
 
