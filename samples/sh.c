@@ -60,86 +60,31 @@ runcmd(struct cmd *cmd)
     ecmd = (struct execcmd*)cmd;
     if(ecmd->argv[0] == 0)
       exit(0);
-//    Your code here ...
-//    The exec() functions only return if an error has occurred.
-//    The return value is -1,
-    int success = execvp(ecmd->argv[0], ecmd->argv);
-    if (success == -1) {
-        fprintf(stderr, "exec error\n");
-//     kill process
-        exit(EXIT_FAILURE);
-    }
+    fprintf(stderr, "exec not implemented\n");
+    // Your code here ...
     break;
 
   case '>':
   case '<':
     rcmd = (struct redircmd*)cmd;
-
+    fprintf(stderr, "redir not implemented\n");
     // Your code here ...
-    int redir_fd = 0;
-    if (rcmd->type == '<') {
-       redir_fd = open(rcmd->file, rcmd->mode);
-    } else {
-//   S_IWOTH write permission
-       redir_fd = open(rcmd->file, rcmd->mode, S_IWOTH);
-    }
-    if (redir_fd < 0) {
-       exit(EXIT_FAILURE);
-    }
-//  dup2 returns the value of the second parameter (fildes2) upon success.
-//  A negative return value means that an error occured.
-    if (dup2(redir_fd, rcmd->fd) < 0) {
-       exit(EXIT_FAILURE);
-    }
     runcmd(rcmd->cmd);
     break;
 
   case '|':
     pcmd = (struct pipecmd*)cmd;
-
-    int fileDescr[2];
-//  pipe
-//  single argument which is an array of two integers, and if successful,
-//  the array will contain two new file descriptors to be used for the pipeline.
-    if(pipe(fileDescr) == -1)
-    {
-      fprintf(stderr, "pipe error\n");
-      exit(EXIT_FAILURE);
-    }
-
-//  one process will take input from other
-//  CODE was partly taken from pipe manual
-    int pid = fork1();
-
-    if (pid == -1) {
-        perror("pipe fork error");
-        exit(EXIT_FAILURE);
-    }
-
-    if (pid == 0) /* Child*/
-    {
-      close(fileDescr[0]);  /* Close unused write end */
-      if (dup2(fileDescr[1], fileno(stdout)) == -1) exit(EXIT_FAILURE);
-      close(fileDescr[1]);
-      runcmd(pcmd->left);
-    }
-    else
-    {  /* Parent*/
-      close(fileDescr[1]);
-      if (dup2(fileDescr[0], fileno(stdin)) == -1) exit(EXIT_FAILURE);
-      close(fileDescr[0]);
-      runcmd(pcmd->right);
-    }
-
+    fprintf(stderr, "pipe not implemented\n");
+    // Your code here ...
     break;
-  }    
+  }
   exit(0);
 }
 
 int
 getcmd(char *buf, int nbuf)
 {
-  
+
   if (isatty(fileno(stdin)))
     fprintf(stdout, "$ ");
   memset(buf, 0, nbuf);
@@ -176,7 +121,7 @@ int
 fork1(void)
 {
   int pid;
-  
+
   pid = fork();
   if(pid == -1)
     perror("fork");
@@ -232,7 +177,7 @@ gettoken(char **ps, char *es, char **q, char **eq)
 {
   char *s;
   int ret;
-  
+
   s = *ps;
   while(s < es && strchr(whitespace, *s))
     s++;
@@ -257,7 +202,7 @@ gettoken(char **ps, char *es, char **q, char **eq)
   }
   if(eq)
     *eq = s;
-  
+
   while(s < es && strchr(whitespace, *s))
     s++;
   *ps = s;
@@ -268,7 +213,7 @@ int
 peek(char **ps, char *es, char *toks)
 {
   char *s;
-  
+
   s = *ps;
   while(s < es && strchr(whitespace, *s))
     s++;
@@ -282,7 +227,7 @@ struct cmd *parseexec(char**, char*);
 
 // make a copy of the characters in the input buffer, starting from s through es.
 // null-terminate the copy to make it a string.
-char 
+char
 *mkcopy(char *s, char *es)
 {
   int n = es - s;
@@ -361,7 +306,7 @@ parseexec(char **ps, char *es)
   int tok, argc;
   struct execcmd *cmd;
   struct cmd *ret;
-  
+
   ret = execcmd();
   cmd = (struct execcmd*)ret;
 
