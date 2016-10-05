@@ -1,9 +1,20 @@
 .data
 
 greetings_str:
-    .asciz "Enter the string you want to echo:\n"
+    .string "Enter your name:\n"
     greetings_str_len = . - greetings_str - 1
- 
+
+scanf_format:
+    .string "%256s"
+
+hello_str:
+    .ascii "Hello, "
+    hello_str_len = . - hello_str
+
+.bss
+input_str:
+    .space 1
+
 .text  # Code Segment
     .global  main
   
@@ -16,11 +27,23 @@ main:
     int     $0x80                           # call kernel
 
     # Read and store the user input
-    // movl 3, %eax          # system call number (sys_read)
-    // movl 0, %ebx          # file descriptor (stdin)
-    // movl str, %ecx        # message destination
-    // movl 100, %edx        # message length
-    // int  $0x80            # call kernel
+    pushl $input_str
+    pushl $scanf_format
+    call scanf
+
+    # Print "Hello, "
+    movl    $4, %eax                        # system call number (sys_write)
+    movl    $1, %ebx                        # file descriptor (stdout)
+    movl    $hello_str, %ecx                # message to write
+    movl    $hello_str_len, %edx            # message length
+    int     $0x80                           # call kernel
+
+    # Print name
+    movl    $4, %eax                        # system call number (sys_write)
+    movl    $1, %ebx                        # file descriptor (stdout)
+    movl    $input_str, %ecx                # message to write
+    movl    $256, %edx                      # message length
+    int     $0x80                           # call kernel
 
     # Exit 
     movl    $1, %eax  # system call number (sys_exit)
