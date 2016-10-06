@@ -1,11 +1,13 @@
 .data
 
-greetings_str:
+prompt_str:
     .string "Enter your name:\n"
-    greetings_str_len = . - greetings_str - 1
+    prompt_str_len = . - prompt_str - 1
+
+.set name_buf_len, 256
 
 scanf_format:
-    .string "%256s"
+    .asciz "%256s"  # this is a real pain for me to convert name_buf_len to string
 
 hello_str:
     .ascii "Hello, "
@@ -13,20 +15,20 @@ hello_str:
 
 .bss
 input_str:
-    .space 1
+    .space name_buf_len
 
 .text  # Code Segment
     .global  main
   
 main:
-    # Print greetings
+    # Print prompt
     movl    $4, %eax                        # system call number (sys_write)
     movl    $1, %ebx                        # file descriptor (stdout)
-    movl    $greetings_str, %ecx            # message to write
-    movl    $greetings_str_len, %edx        # message length
+    movl    $prompt_str, %ecx               # message to write
+    movl    $prompt_str_len, %edx           # message length
     int     $0x80                           # call kernel
 
-    # Read and store the user input
+    # Read and store the user name
     pushl $input_str
     pushl $scanf_format
     call scanf
@@ -42,7 +44,7 @@ main:
     movl    $4, %eax                        # system call number (sys_write)
     movl    $1, %ebx                        # file descriptor (stdout)
     movl    $input_str, %ecx                # message to write
-    movl    $256, %edx                      # message length
+    movl    $name_buf_len, %edx             # message length
     int     $0x80                           # call kernel
 
     # Exit 
