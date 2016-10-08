@@ -26,9 +26,9 @@ _start:
           movq    $welcome_len, %rdx    # str len to reg
           int     $0x80
 
-          movq $name, %rdi              # format to reg
-          movq $in_buf, %rsi            # buffer to reg
-          callq scanf                   # syscall scanf
+          movq    $name, %rdi           # format to reg
+          movq    $in_buf, %rsi         # buffer to reg
+          callq   scanf                 # syscall scanf
 
           movq    $4, %rax
           movq    $1, %rbx
