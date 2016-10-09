@@ -3,5 +3,5 @@ build:
 	ld -dynamic-linker /lib64/ld-linux-x86-64.so.2 -lc -e main -o hello hello.o
 
 clean:
-	rm hello hello.o
+	rm -f hello hello.o
 

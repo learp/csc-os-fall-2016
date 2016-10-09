@@ -12,12 +12,12 @@
 		.asciz "\n"
 		newlinelength = . - newlinestr
 
-	namestr:
+	formatstr:
 		.asciz "%s"
 		namelength = 256
 
-.bss
-	.lcomm name, 256
+buffer:
+	.space 256
 
 .text
 
@@ -41,9 +41,10 @@
 		ret
 
 	readname:
-		movq $namestr, %rdi
-		movq $name, %rsi
-		call scanf
+		xorq	%rax, %rax
+		movq	$formatstr, %rdi
+		movq	$formatstr, %rsi
+		callq	scanf
 		ret
 
 	printhello:
@@ -56,7 +57,7 @@
 	printname: 
 		movq	$1, %rax
 		movq    $1, %rdi
-		movq    $namestr, %rsi
+		movq    $formatstr, %rsi
 		movq    $namelength, %rdx
 		ret
 
@@ -69,7 +70,7 @@
 		ret	
 	
 	main:
-		call printwelcome
+	call printwelcome
 		syscall
 
 		call readname
