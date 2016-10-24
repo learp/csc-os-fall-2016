@@ -6,6 +6,7 @@
 #include <assert.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <errno.h>
 
 // Simplifed xv6 shell.
 
@@ -43,6 +44,7 @@ struct cmd *parsecmd(char*);
 void
 runcmd(struct cmd *cmd)
 {
+	// p - read/write pipe, r - file descriptor
   int p[2], r;
   struct execcmd *ecmd;
   struct pipecmd *pcmd;
@@ -60,31 +62,81 @@ runcmd(struct cmd *cmd)
     ecmd = (struct execcmd*)cmd;
     if(ecmd->argv[0] == 0)
       exit(0);
-    fprintf(stderr, "exec not implemented\n");
-    // Your code here ...
-    break;
+	// V: as an array of char*
+	// The versions with 'p' in there use the environment path variable to search for the executable file named to execute.
+	if(execvp(ecmd->argv[0], ecmd->argv) == -1)
+	{
+		fprintf(stderr, "can't exec: %s\n", strerror(errno));
+	}
+	break;
 
   case '>':
   case '<':
     rcmd = (struct redircmd*)cmd;
-    fprintf(stderr, "redir not implemented\n");
-    // Your code here ...
+	// Open file
+    r = open(rcmd->file, rcmd->mode);
+	if (r==-1) {
+		fprintf(stderr, "can't open file: %s\n", strerror(errno));
+		exit(-1);
+	}
+	// Duplicate file descriptor to stdin (for '<') or  stdout (for '>') descriptor
+	if (dup2(r, rcmd->fd)==-1) {
+		fprintf(stderr, "can't copy descriptor: %s\n", strerror(errno));
+		exit(-1);
+	}
+	// Close file
+	if (close(r)==-1) {
+		fprintf(stderr, "can't close: %s\n", strerror(errno));
+		exit(-1);
+	}
     runcmd(rcmd->cmd);
     break;
 
   case '|':
     pcmd = (struct pipecmd*)cmd;
     fprintf(stderr, "pipe not implemented\n");
-    // Your code here ...
+	// Creating a pipe. Pipe is the two elements array, where p[0] is read descriptor and p[1] - write descriptor
+	if (pipe(p) == -1) {
+		fprintf(stderr, "can't create pipe: %s\n", strerror(errno));
+		exit(-1);
+	}
+	struct cmd *pipepart;
+	// If fork1() == 0 then work with child process, else work with parent process
+	if (fork1() == 0) {
+		// Child process works with stdin and choose right side of pipe command
+		if (dup2(p[0], fileno(stdout))==-1) {
+			fprintf(stderr, "can't copy descriptor: %s\n", strerror(errno));
+			exit(-1);
+		}
+		pipepart = pcmd->right;
+	} else {
+		// Parent process works with stdout and choose left side of pipe command
+		if (dup2(p[1], fileno(stdin))==-1) {
+			fprintf(stderr, "can't copy descriptor: %s\n", strerror(errno));
+			exit(-1);
+		}
+		pipepart = pcmd->left;
+	}
+	// Close pipes
+	if (close(p[0])==-1) {
+		fprintf(stderr, "can't close read descriptor: %s\n", strerror(errno));
+		exit(-1);
+	}
+	if (close(p[1])==-1) {
+		fprintf(stderr, "can't close write descriptor: %s\n", strerror(errno));
+		exit(-1);
+	}
+	// Run left or right side of pipe command
+	runcmd(pipepart);
     break;
-  }
+  }    
   exit(0);
 }
 
 int
 getcmd(char *buf, int nbuf)
 {
-
+  
   if (isatty(fileno(stdin)))
     fprintf(stdout, "$ ");
   memset(buf, 0, nbuf);
@@ -121,7 +173,7 @@ int
 fork1(void)
 {
   int pid;
-
+  
   pid = fork();
   if(pid == -1)
     perror("fork");
@@ -177,7 +229,7 @@ gettoken(char **ps, char *es, char **q, char **eq)
 {
   char *s;
   int ret;
-
+  
   s = *ps;
   while(s < es && strchr(whitespace, *s))
     s++;
@@ -202,7 +254,7 @@ gettoken(char **ps, char *es, char **q, char **eq)
   }
   if(eq)
     *eq = s;
-
+  
   while(s < es && strchr(whitespace, *s))
     s++;
   *ps = s;
@@ -213,7 +265,7 @@ int
 peek(char **ps, char *es, char *toks)
 {
   char *s;
-
+  
   s = *ps;
   while(s < es && strchr(whitespace, *s))
     s++;
@@ -227,7 +279,7 @@ struct cmd *parseexec(char**, char*);
 
 // make a copy of the characters in the input buffer, starting from s through es.
 // null-terminate the copy to make it a string.
-char
+char 
 *mkcopy(char *s, char *es)
 {
   int n = es - s;
@@ -306,7 +358,7 @@ parseexec(char **ps, char *es)
   int tok, argc;
   struct execcmd *cmd;
   struct cmd *ret;
-
+  
   ret = execcmd();
   cmd = (struct execcmd*)ret;
 
