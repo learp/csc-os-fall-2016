@@ -15,22 +15,29 @@ _start:
         cli
         xorw %ax, %ax
         movw %ax, %ds
-        
+
+        #перевод vga в текстовый режим
         movw $0x3, %ax
         int $0x10
-        
+
+        #загрузка адреса видеобуфера в сегмент стека
         movw $0xb800, %dx
         movw %dx, %ss
-        
-        movw $msg, %si
+
         movw $0x2, %cx
+
+        #загрузка адреса строки
+        movw $msg, %si
 print_loop:
         lodsb
+        #проверка на нуль-терминатор
         or %al, %al
         jz endless
 
+        #установка вершины стека
         movw %cx, %sp
-        
+
+        #загрузка очередного символа в видеобуфер
         and $0x00ff, %ax
         or color_mask, %ax
         push %ax
