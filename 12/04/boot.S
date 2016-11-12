@@ -1,6 +1,7 @@
 .code16
 
 .data
+    # Boot magic
     .word 0xAA55
 
 .text
@@ -17,9 +18,11 @@ _start:
 
 print_str:
     LODSB
+    # End of string check
     OR %AL, %AL
     JZ loop
 
+    # Teletype output
     MOVB $0x0E, %AH
     INT $0x10
 
@@ -27,5 +30,3 @@ print_str:
 
 loop:
     JMP loop
-
-    
