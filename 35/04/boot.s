@@ -6,10 +6,7 @@
 .text
   hello_msg:
   .asciz  "Hello world!"
-
-  green_clr:
-  .word   0x0002
-
+  
   .globl _start
 
 _start:
