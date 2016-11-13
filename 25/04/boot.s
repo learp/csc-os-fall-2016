@@ -1,7 +1,6 @@
 # 16-ти битный режим
 .code16
 
-
 .globl _start
 _start:
 	# сброс interrupt flag (IF)
@@ -9,7 +8,6 @@ _start:
 	# поместить адрес строки в %si (или %esi?) для дальнейшей работы с lodsb
 	movw $str, %si
 
-# вывести строку на экран
 print_str:
 	# загрузить байт из %si в %al
 	lodsb
@@ -17,15 +15,12 @@ print_str:
 	orb %al, %al
 	je inf
 
-	# отобразить символ
+	# отобразить символ (teletype)
 	movb $0x0e, %ah
-	# BIOS прерывание
 	int $0x10
 
-	# пока строка не кончилась, продолжать записывать байты
 	jmp print_str
 
-# бесконечный цикл
 inf:
 	jmp inf
 
