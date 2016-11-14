@@ -28,7 +28,7 @@ write_next:
   or      %al,%al
   je      end
 
-  # put next char into video buffer (2 bytes total: sybol + formatting)
+  # put next char into video buffer (2 bytes total: symbol + formatting)
   movw    %bx,%es
   stosw
   jmp     write_next
