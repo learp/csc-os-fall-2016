@@ -4,7 +4,7 @@
 .globl _start;
 _start:      
 	 welcome: .asciz "Hello World!"
-     leaw  welcome, %si
+         leaw  welcome, %si
 	 call .writeStringIn
 	 call _boot
 	 
@@ -22,6 +22,6 @@ _start:
      	ret
 
 _boot:
-	 . = _start + 510
-	.byte 0x55
+    . = _start + 510
+    .byte 0x55
     .byte 0xaa
