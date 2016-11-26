@@ -13,13 +13,24 @@ hello_str:
 
 main:
         cli
-        movw $hello_str, %si
-        movb $0x0E, %ah
+        movw $0xb800, %ax
+        movw %ax, %es
+        movw $hello_str, %ax
+        movw %ax, %si
+        jmp clear_screen
 
 print_char:
-        lodsb
+        movb (%si), %al
+        movb $0x07, %ah
+        inc %si
+        stosw
         cmp $0, %al
         je end
+        jmp print_char
+
+clear_screen:
+        movb $0x02, %al
+        movb $0, %ah
         int $0x10
         jmp print_char
 
