@@ -5,13 +5,18 @@
 
 .text
   hello_msg:
-  .asciz  "Hello world!"
-  
-  .globl _start
+  .asciz  "Hello World!"
+
+.globl _start
 
 _start:
   cli                         # BIOS enabled interrupts; disable
+
   movw   $hello_msg, %si      # Load string address to si for lods
+
+  movw   $0xB800, %cx	      # Load VGA buffer address to stack
+  movw   %cx, %ss
+  movw   $0x2, %cx
 
 write_string:
   lodsb                       # Load next byte
@@ -19,8 +24,12 @@ write_string:
   or     %al, %al             # Break writing on null terminal
   je     end
 
-  movb   $0x0E, %ah           # Move a character to vga
-  int    $0x10                # call BIOS video service interruption
+  movw   %cx, %sp
+
+  and    $0x00FF, %ax         # Clear 'color' bits
+  or     $0x5F00, %ax         # Set color
+  push   %ax
+  add    $0x2, %cx
 
   jmp    write_string
 
