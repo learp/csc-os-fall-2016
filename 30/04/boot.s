@@ -1,38 +1,52 @@
 .code16
+
+.data 
+    .word 0xAA55
+
 .section .text
     .globl _start
 
 _start:
-    jmp _beg
     hello: .asciz "Hello World!"
 
-    .macro write_string string
-        leaw \string, %si
-        call .write_letter
-    .endm
+    setup:
+	cld
+	# clear data storage segment
+	movw $0x0, %ax
+   	movw %ax, %ds
+	
+	# load pointer of string to si
+    	movw $hello, %si
+    	movw $0xB800, %ax
+    	movw %ax, %es
+	
+	# clear video segment
+    	movw $0x0, %di   
+	
+	# set white color for string
+	movb   $0x07, %ah         
 
-    .write_letter:
+    write_letter:
 
         # load next letter
         lodsb
 
         # check if string is over
         orb %al, %al
-        jz .return
+        jz print_spaces
 
         # function to write a letter
-        movb $0x0e, %ah
-        int $0x10
+        stosw
 
         # write next letter
-        jmp .write_letter
+        jmp write_letter
+	
+    print_spaces:
 
-    .return:
-        ret
+	# print 0xff0 spaces after string
+	movw $0x20, %ax
+ 	movw $0xff0, %cx          
+	rep stosw
 
-_beg:
-    write_string hello
-
-    . = _start + 510
-    .byte 0x55
-    .byte 0xaa
+    end:
+	jmp end  
