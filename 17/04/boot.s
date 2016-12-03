@@ -1,31 +1,35 @@
-; http://www.codeproject.com/Articles/664165/Writing-a-boot-loader-in-Assembly-and-C-Part
-
 .code16
+
+.data
+  .word   0xAA55
+
 .text
-    .globl _start
+  hello: .asciz  "Hello, World!"
+  .globl _start
 
 _start:
-    jmp _begin
-    message: .asciz "Hello World!"
 
-    .write_letter:
+  movw    $0x07C0, %dx
+  movw    $hello, %si
+  movw    $0xB800, %bx
+  movw    $0x0, %di
+  movb    $0x07, %ah
 
-        lodsb
+write_char:
+  movw    %dx, %es
 
-        orb $0x0, %al
-        jz .return
+  movb    (%si), %al
+  inc     %si
 
-        movb $0x0e, %ah
-        int $0x10
+  # stop char => do stop
+  orb $0x00, %al
+  jz stop
 
-        jmp .write_letter
+  # to vbuff
+  movw    %bx, %es
+  stosw
 
-    .return:
-        jmp .return
+  # again
+  jmp     write_char
 
-_begin:
-    leaw message, %si
-    call .write_letter
-    . = _start + 510
-    .byte 0x55
-    .byte 0xaa
+stop: jmp stop
