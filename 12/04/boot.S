@@ -12,21 +12,26 @@ greet_msg:
 
 _start:
     CLI
-    XORW %AX, %AX
 
+    MOVW $0x07C0, %DX
     MOVW $greet_msg, %SI
+    MOVW $0xB800, %BX
+    MOVW %BX, %ES
+    MOVW $0x0, %DI
 
-print_str:
+    # Clear QEMU output and leave cursor on center
+    MOVW $0x0720, %AX  #black BG, white FG, 20 - space, 
+    MOVW $0x0250, %CX
+    REP STOSW
+
+print_char:
     LODSB
-    # End of string check
+
     OR %AL, %AL
     JZ loop
 
-    # Teletype output
-    MOVB $0x0E, %AH
-    INT $0x10
-
-    JMP print_str
+    STOSW
+    JMP print_char
 
 loop:
     JMP loop
